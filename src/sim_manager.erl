@@ -9,8 +9,21 @@
 % make a manager
 new_manager() -> ok.
 
+% manager init
+% configList : [{Sid_1, [Addr_1, Timeout_1]}, {Sid_2, [Addr_2, Timeout_2]}]
+manager_init(ConfigList) ->
+    % make ets Table
+    Table = make_new_table(),
+    % 
 
-%manager process
+
+% make ets table
+make_new_table() ->
+    Table = ets:new(?MODULE, [set, protected]),
+    Table.
+
+
+% manager process init
 manager_process_init(Table, ConfigList) ->
     % connect sim
     connect_all_sim(ConfigList, Table),

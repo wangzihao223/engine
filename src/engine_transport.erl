@@ -59,8 +59,7 @@ call_sim(Sock, Id, Method, Args) ->
 
 
 % Concurrency call remote func
-% the sockList is dict:to_list(sockdict)
-% sockList like:
+% sockArgs like:
 % [{Sock_1, args}, {Sock_2, args2}]
 call_many_sim(SockArgs, Table, Method) ->
 
@@ -114,6 +113,7 @@ waiter(Master, Set, RecvSet, Res) ->
     end.
 
 % loop call sim
+% sockargs [{sock_1, Args_1}, {sock_2, Args_2}, ...]
 loop_call_sim([], _Sockets, _Table, _Method, _Waiter) ->
     % wait Water reply
     receive
@@ -138,7 +138,7 @@ counter_up(Table) ->
 
 % connect sim 
 % Addr : {Ip, Port}
-% Ip: {0..255, 0..255, 0..255, 0..255}
+% Ip: {0..255, 0..255, 0..255, 0..255} or string
 % Port: int
 connect_sim(Addr, Timeout) ->
     Option = [{active, once}, {packet, 4}],
