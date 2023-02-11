@@ -1,6 +1,8 @@
 -module(sim_manager).
 
-% -export([]).
+-export([manager/1]).
+-export([new_manager/1]).
+-export([sim_manager_monitor/1]).
 
 -import(engine_transport, [connect_sim/2]).
 -import(remote_func, [init_all_sim/2]).
@@ -10,14 +12,30 @@
 -define(TIME_OUT, 300000).
 
 % make a manager
-new_manager() -> ok.
+new_manager(ConfigList) ->
+    % spawn manager process
+    ManagerPid = spawn(sim_manager, manager, [ConfigList]),
+    % spawn monitor process
+    MonitorPid = spawn(fun() -> sim_manager_monitor(ManagerPid) end),
+    {ManagerPid, MonitorPid} .
+
+
+
+manager(ConfigList) ->
+    % init
+    Table = manager_init(ConfigList),
+    % get sidset
+    [{<<"sid_set">>, SidSet}] = ets:lookup(Table, <<"sid_set">>),
+    manager_process(SidSet, Table).
 
 % manager init
 % configList : [{Sid_1, [Addr_1, Timeout_1]}, {Sid_2, [Addr_2, Timeout_2]}]
 manager_init(ConfigList) ->
     % make ets Table
     Table = make_new_table(),
-    % 
+    % manager process init
+    manager_process_init(Table, ConfigList),
+    Table.
 
 
 % make ets table
@@ -152,14 +170,6 @@ choice_proxy_run(Pq, Step, Res, SidSet) ->
                     {Pq, Res, SidSet}
             end
     end.
-                    
-
-% wait proxy reqest
-wait_proxy_req() ->
-    receive
-        {Step, Sid, Pid} -> 
-            {Step, {Sid, Pid}}
-    end.
 
 
 wait_proxy_regist(SidSet, RecvSet, Table) ->
@@ -223,6 +233,8 @@ connect_all_sim(ConfigList, Table) ->
     save_sid_sock(Sid, ClientSock, Table),
     % save sock_sid
     save_sock_sid(Sid, ClientSock, Table),
+    % save_sid_set
+    save_sid_set(Table, Sid),
     % loop
     connect_all_sim(NextConfigList, Table).
 
@@ -267,3 +279,31 @@ save_sock_sid(Sid, Sock, Table) ->
             ets:insert(Table, {<<"sock_sid">>, NewDict})
     end.
 
+% save sid set
+save_sid_set(Table, Sid) ->
+    case ets:lookup(Table, <<"sid_set">>) of
+        % not found insert new sid_set
+        [] ->
+            SidSet = sets:new(),
+            NewSidSet = sets:add_element(Sid, SidSet),
+            % insert newSidSet to Table,
+            ets:insert(Table, {<<"sid_set">>, NewSidSet});
+        [{<<"sid_set">>, SidSet}] ->
+            % insert now sid sock
+            NewSidSet = sets:add_element(Sid, SidSet),
+            % insert newSidSet to Table
+            ets:insert(Table, {<<"sid_set">>, NewSidSet})
+    end.
+
+
+% TODO： add monitor 
+sim_manager_monitor(MointoredPid) ->
+    Ref = erlang:monitor(process, MointoredPid),
+    receive
+        {'DOWN', Ref, process, MointoredPid, Why} ->
+            handle_error(Why)
+    end.          
+
+% handle different errors
+handle_error(_Why) ->
+    ok.
