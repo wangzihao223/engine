@@ -6,6 +6,9 @@
 -import(remote_func, [init_all_sim/2]).
 -import(until, [sets_equal/2]).
 
+% set time_out 
+-define(TIME_OUT, 300000).
+
 % make a manager
 new_manager() -> ok.
 
@@ -203,6 +206,9 @@ wait_init() ->
         % sidArgs : [{sid1, Args1}, ...]
         % Args1 : [arg1, arg2, arg3 ...]
         {init, SidArgs} -> SidArgs
+        % set timeout
+        after ?TIME_OUT ->
+            throw({error, <<"wait init time out !">>})
     end.
 
 
