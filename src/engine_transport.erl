@@ -151,5 +151,5 @@ connect_sim(Addr, Timeout) ->
         {ok, Socket} -> 
             Socket;
         {error, Reason} ->
-            throw({error, Reason})
+            throw({<<"connect_error">>, Reason})
     end.

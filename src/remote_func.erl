@@ -59,7 +59,7 @@ call_step(Sock, Table, Time, Inputs) ->
             NextTime;
         % error
         true ->
-            throw({func_error, "step remote error !"})
+            throw({<<"func_error">>, "step remote error !"})
     end.
 
 
@@ -79,7 +79,7 @@ call_get_data(Sock, Table, _OutPuts) ->
             GetData1;
         % error
         true ->
-            throw({func_error, "get_data error"})
+            throw({<<"func_error">>, "get_data error"})
     end.
 
 call_get_data(Sock, Table) ->
@@ -97,5 +97,5 @@ call_stop(Sock, Table) ->
         % success
         ok;
         true ->
-            throw({func_error, "stop error"})
+            throw({<<"func_error">>, "stop error"})
     end.

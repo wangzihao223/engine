@@ -218,7 +218,7 @@ wait_init() ->
         {init, SidArgs} -> SidArgs
         % set timeout
         after ?TIME_OUT ->
-            throw({error, <<"wait init time out !">>})
+            throw({<<"init_time_out_error">>, <<"wait init time out !">>})
     end.
 
 
@@ -260,7 +260,7 @@ save_sid_sock(Sid, Sock, Table) ->
 % configList : [{Sid_1, [Addr_1, Timeout_1]}, {Sid_2, [Addr_2, Timeout_2]}],
 % Addr_1: string
 save_config_list(ConfigList, Table) ->
-    ets:insert(Table, ConfigList).
+    ets:insert(Table, {<<"config_list">>, ConfigList}).
 
 
 % save sock_sid
@@ -301,9 +301,19 @@ sim_manager_monitor(MointoredPid) ->
     Ref = erlang:monitor(process, MointoredPid),
     receive
         {'DOWN', Ref, process, MointoredPid, Why} ->
-            handle_error(Why)
+            % handle_error(Why)
+            io:format("~p ~n", [Why])
     end.          
 
-% handle different errors
-handle_error(_Why) ->
-    ok.
+% % handle different errors
+% handle_error(Why) ->
+%     case Why of
+%         {<<"func_error">>, Reason} ->
+%             io:format("~s ~n", [Reason]),
+%             % handle error method
+
+
+% reset_process(Table) ->
+
+
+
