@@ -1,7 +1,7 @@
 -module(sim_manager).
 
--export([manager/1]).
--export([new_manager/1]).
+-export([manager/2]).
+-export([new_manager/2]).
 -export([sim_manager_monitor/1]).
 
 -import(engine_transport, [connect_sim/2]).
@@ -12,27 +12,29 @@
 -define(TIME_OUT, 300000).
 
 % make a manager
-new_manager(ConfigList) ->
+new_manager(ConfigList, UUid) ->
     % spawn manager process
-    ManagerPid = spawn(sim_manager, manager, [ConfigList]),
+    ManagerPid = spawn(sim_manager, manager, [ConfigList, UUid]),
     % spawn monitor process
     MonitorPid = spawn(fun() -> sim_manager_monitor(ManagerPid) end),
-    {ManagerPid, MonitorPid} .
+    {ManagerPid, MonitorPid}.
 
 
 
-manager(ConfigList) ->
+manager(ConfigList, UUid) ->
     % init
-    Table = manager_init(ConfigList),
+    Table = manager_init(ConfigList, UUid),
     % get sidset
     [{<<"sid_set">>, SidSet}] = ets:lookup(Table, <<"sid_set">>),
     manager_process(SidSet, Table).
 
 % manager init
 % configList : [{Sid_1, [Addr_1, Timeout_1]}, {Sid_2, [Addr_2, Timeout_2]}]
-manager_init(ConfigList) ->
+manager_init(ConfigList, UUid) ->
     % make ets Table
     Table = make_new_table(),
+    %  add UUid
+    ets:insert(Table, {<<"uuid">>, UUid}),
     % manager process init
     manager_process_init(Table, ConfigList),
     Table.
@@ -54,11 +56,28 @@ manager_process_init(Table, ConfigList) ->
     % init sim 
     % wait init command
     SidArgs = wait_init(),
+    % wait dep
+    wait_dep(Table),
     % init all sim
     % now i don't care init resault
     init_all_sim(SidArgs, Table),
     ok.
 
+% wait dependency
+wait_dep(Table) ->
+    receive
+        {<<"dep">>, DepList, BeDepList} ->
+            save_statement_dep(DepList, BeDepList, Table);
+        _ -> ok
+    end.
+% statement dependency
+% DepList [{sid_1, [xx, xxx, xxx]}, {sid_2, [xx, xxx, xxxx]}, ...]
+% BeDep like up
+save_statement_dep(DepList, BeDepList, Table) ->
+    DepDict = dict:from_list(DepList),
+    BeDepDict = dict:from_list(BeDepList),
+    ets:insert(Table, {<<"dep_dict">>, DepDict}),
+    ets:insert(Table, {<<"be_dep_dict">>, BeDepDict}).
 
 % after init 
 % main process
@@ -112,9 +131,11 @@ handle_req(Pq, SidSet, RecvSidSet) ->
                 {<<"proxy_run">>, Step, Sid, Pid} ->
 
                     {NewPq, NewRecvSidSet} = handle_proxy_req(Step, Sid, Pid, Pq, RecvSidSet),
-                    handle_req(NewPq, SidSet, NewRecvSidSet)
+                    handle_req(NewPq, SidSet, NewRecvSidSet);
                 
                 % TODO : add other request
+                % receive garbage message and give up
+                _ -> handle_req(Pq, SidSet, RecvSidSet)
             end
     end.
 
@@ -215,7 +236,9 @@ wait_init() ->
     receive
         % sidArgs : [{sid1, Args1}, ...]
         % Args1 : [arg1, arg2, arg3 ...]
-        {init, SidArgs} -> SidArgs
+        {<<"init">>, SidArgs} -> 
+            SidArgs
+
         % set timeout
         after ?TIME_OUT ->
             throw({<<"init_time_out_error">>, <<"wait init time out !">>})
