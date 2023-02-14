@@ -221,7 +221,7 @@ wait_proxy_regist(SidSet, RecvSet, Table) ->
                     % save sid_pid
                     save_sid_pid(Sid, Pid, Table),
                     % reply Proxy process 
-                    Pid ! {ok, self()},
+                    Pid ! {ok, self(), Table},
                     wait_proxy_regist(SidSet, NewRecvSet, Table)
             end;
         % break
