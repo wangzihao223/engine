@@ -1,8 +1,17 @@
 -module(proxy_process).
 
 -export([new_process/4]).
+-export([create_group_process/3]).
 
 -import(until, [sets_equal/2]).
+
+-define(TIMEOUT, 30000).
+
+create_group_process(_, [], _) -> ok;
+create_group_process(Manager, SidList, MaxStep) ->
+    [{Sid, Step}| NextSidList] = SidList,
+    new_process(Manager, Sid, Step, MaxStep),
+    create_group_process(Manager, NextSidList, MaxStep).
 
 
 new_process(Manager, Sid, Step, MaxStep) ->
@@ -37,6 +46,9 @@ registe_manager(Manager, Sid) ->
     Manager ! {<<"registe">>, Sid, self()},
     receive
         {ok, _Manager, Table} -> Table
+    after 
+        ?TIMEOUT ->
+            throw({<<"registe_time_out_error">>, <<"time out">>})
     end.
 
 % get dependency
