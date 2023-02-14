@@ -40,6 +40,7 @@ manager_init(ConfigList, UUid) ->
     Table.
 
 
+
 % make ets table
 make_new_table() ->
     Table = ets:new(?MODULE, [set, protected]),
@@ -53,6 +54,9 @@ manager_process_init(Table, ConfigList) ->
 
     % save ConfigList 
     save_config_list(ConfigList, Table),
+
+    % init buffer
+    init_buffer(Table),
     % init sim 
     % wait init command
     SidArgs = wait_init(),
@@ -62,6 +66,22 @@ manager_process_init(Table, ConfigList) ->
     % now i don't care init resault
     init_all_sim(SidArgs, Table),
     ok.
+
+init_buffer(Table) ->
+    % get sid_sets
+    [{<<"sid_set">>, SidSet}] = ets:lookup(Table, <<"sid_set">>),
+    SidList = sets:to_list(SidSet),
+    init_buffer_loop(Table, SidList).
+     
+init_buffer_loop(_Table, []) -> ok;
+init_buffer_loop(Table, SidList) ->
+    [Sid| NextList] = SidList,
+    % sid is string
+    Key = unicode:characters_to_binary([Sid, <<"_buff">>]),
+    % add ets
+    ets:insert(Table, {Key, []}),
+    init_buffer_loop(Table, NextList).
+
 
 % wait dependency
 wait_dep(Table) ->
@@ -137,7 +157,14 @@ handle_req(Pq, SidSet, RecvSidSet, Table) ->
                 % handle proxy_dep 
                 % find proxy_dep and send proxy
                 {<<"proxy_dep">>, Sid, Pid} ->
-                    handle_proxy_dep(Table, Sid, Pid); 
+                    handle_proxy_dep(Table, Sid, Pid),
+                    handle_req(Pq, SidSet, RecvSidSet, Table);
+                % update buffer
+                {<<"update_buffer">>, UpdateList, Pid} ->
+                    handle_update_buffer(Table, UpdateList, Pid),
+                    handle_req(Pq, SidSet, RecvSidSet, Table);
+                % stop manager
+                {<<"stop">>} -> ok;
                 % receive garbage message and give up
                 _ -> handle_req(Pq, SidSet, RecvSidSet, Table)
             end
@@ -160,6 +187,16 @@ handle_proxy_dep(Table, Sid, Pid) ->
     {ok, SidList} = dict:find(Sid, DepDict),
     {ok, BeSidList} = dict:find(Sid, BeDepDict),
     Pid ! {SidList, BeSidList}.
+
+handle_update_buffer(_Table, [], Pid) -> 
+    % send proxy process
+    Pid ! {<<"update_success">>, self()},
+    ok;
+handle_update_buffer(Table, UpdateList, Pid) ->
+    [{Sid, Value} | NextUpdateList] = UpdateList,
+    Key = unicode:characters_to_binary([Sid, <<"_buff">>]),
+    ets:insert(Table, {Key, Value}),
+    handle_update_buffer(Table, NextUpdateList, Pid).
 
 
 % notice process run
