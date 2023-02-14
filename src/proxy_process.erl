@@ -25,6 +25,8 @@ proxy_process(Manager, Sid, Step, MaxStep) ->
         MaxStep).
 
 process_init(Manager, Sid) ->
+    % link manager
+    link(Manager),
     Table = registe_manager(Manager, Sid),
     DepTuple = get_dep_relationship(Manager, Sid),
     {Table, DepTuple}. 
