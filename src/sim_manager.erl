@@ -93,18 +93,18 @@ manager_process(SidSet, RecvSet, Table) ->
     Pq = heapq:new(),
     % start
     % it's loop
-    handle_req(Pq, SidSet).
+    handle_req(Pq, SidSet, Table).
 
 
-handle_req(Pq, SidSet) ->
+handle_req(Pq, SidSet, Table) ->
     % new RecvSidSet
     RecvSidSet = sets:new(),
-    handle_req(Pq, SidSet, RecvSidSet).
+    handle_req(Pq, SidSet, RecvSidSet, Table).
 
 % handle all request:
 % proxy request
 % and other contral
-handle_req(Pq, SidSet, RecvSidSet) ->
+handle_req(Pq, SidSet, RecvSidSet, Table) ->
     % sets equal
     case sets_equal(SidSet, RecvSidSet) of
         % equal
@@ -121,7 +121,7 @@ handle_req(Pq, SidSet, RecvSidSet) ->
             notice_process_run(SidPidList),
             % reset RecvSidSet
             NewRecvSidSet = sets:new(),
-            handle_req(NewPq, NewSidSet, NewRecvSidSet);
+            handle_req(NewPq, NewSidSet, NewRecvSidSet, Table);
 
         % not equal
         false ->
@@ -131,11 +131,15 @@ handle_req(Pq, SidSet, RecvSidSet) ->
                 {<<"proxy_run">>, Step, Sid, Pid} ->
 
                     {NewPq, NewRecvSidSet} = handle_proxy_req(Step, Sid, Pid, Pq, RecvSidSet),
-                    handle_req(NewPq, SidSet, NewRecvSidSet);
+                    handle_req(NewPq, SidSet, NewRecvSidSet, Table);
                 
                 % TODO : add other request
+                % handle proxy_dep 
+                % find proxy_dep and send proxy
+                {<<"proxy_dep">>, Sid, Pid} ->
+                    handle_proxy_dep(Table, Sid, Pid); 
                 % receive garbage message and give up
-                _ -> handle_req(Pq, SidSet, RecvSidSet)
+                _ -> handle_req(Pq, SidSet, RecvSidSet, Table)
             end
     end.
 
@@ -145,6 +149,17 @@ handle_proxy_req(Step, Sid, Pid, Pq, RecvSidSet) ->
         NewPq = heapq:push(Pq, {Step, {Sid, Pid}}),
         NewRecvSidSet = sets:add_element(Sid, RecvSidSet),
         {NewPq, NewRecvSidSet}.
+
+% handle proxy dep
+handle_proxy_dep(Table, Sid, Pid) ->
+    [{<<"dep_dict">>, DepDict}] = ets:lookup(Table, <<"dep_dict">>),
+    [{<<"be_dep_dict">>, BeDepDict}] = ets:lookup(Table, <<"be_dep_dict">>),
+    % send dep to proxy_process
+        % Dep : [sid_1, sid_2, ]
+        % BeDep : [sid_3, sid]
+    {ok, SidList} = dict:find(Sid, DepDict),
+    {ok, BeSidList} = dict:find(Sid, BeDepDict),
+    Pid ! {SidList, BeSidList}.
 
 
 % notice process run
