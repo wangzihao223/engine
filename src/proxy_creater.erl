@@ -8,6 +8,8 @@
 -export([handle_call/3]).
 -export([handle_cast/2]).
 
+-export([create_proxy_group/3]).
+
 -define(SERVER, ?MODULE).
 
 start_link() ->
@@ -19,7 +21,13 @@ init([]) ->
 
 handle_cast({<<"proxy_group">>, Manager, SidList, MaxStep}, _Table)->
     proxy_process:create_group_process(Manager,
-        SidList, MaxStep).
+        SidList, MaxStep),
+    {noreply, _Table}.
 handle_call({<<"new_proxy">>, Manager, Sid, Step, MaxStep}, 
     _From, _Table) ->
-    proxy_process:new_process(Manager, Sid, Step, MaxStep).
+    proxy_process:new_process(Manager, Sid, Step, MaxStep),
+    {noreply, _Table}.
+
+create_proxy_group(Manager, SidList, MaxStep) ->
+    gen_server:cast(?SERVER, 
+    {<<"proxy_group">>, Manager, SidList, MaxStep}).

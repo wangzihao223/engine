@@ -33,3 +33,13 @@ init([]) ->
     {ok, {SupFlags, ChildSpecs}}.
 
 %% internal functions
+
+make_managers(0, ChildList, _Table) -> ChildList;
+make_managers(Num, ChildList, Table) ->
+    Child = #{
+        id => Num,
+        start => {},
+        type => worker
+    },
+    NewChildList = [Child | ChildList],
+    make_managers(Num - 1, NewChildList, Table).

@@ -8,6 +8,10 @@
 -export([handle_call/3]).
 -export([handle_cast/2]).
 
+-export([make_new_manager/2]).
+-export([init_sim/2]).
+-export([send_dep/3]).
+
 -define(SERVER, ?MODULE).
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
@@ -26,7 +30,7 @@ handle_call({<<"make_new_manager">>, UUid, ConfigList}, _From, Table) ->
     Dict = dict:new(),
     NewDict = dict:append(<<"pid">>, {ManagerPid, MonitorPid}, Dict),
     ets:insert(Table, {UUid, NewDict}),
-    {noreply, Table};
+    {reply, ManagerPid, Table};
 % sidArgs : [{sid1, Args1}, ...]
 % Args1 : [arg1, arg2, arg3 ...]
 handle_call({<<"init_sim">>, UUid, SidArgs}, _From, Table) ->
@@ -49,7 +53,7 @@ handle_start_manager(Table, UUid, SidArgs) ->
             ManagerPid ! {<<"init">>, SidArgs},
             NewDict = dict:append(<<"sim_args">>, SidArgs, Dict),
             ets:insert(Table, {UUid, NewDict}),
-            {noreply, Table}
+            {reply, {<<"ok">>}, Table}
     end.
 
 handle_dep(Table, UUid, DepList, BeDepList) ->
@@ -65,3 +69,12 @@ handle_dep(Table, UUid, DepList, BeDepList) ->
             ets:insert(Table, {UUid, Dict_2}),
             {noreply, Table}
     end.
+
+make_new_manager(UUid, ConfigList) ->
+    gen_server:call(?SERVER, {<<"make_new_manager">>, UUid, ConfigList}).
+
+init_sim(UUid, SidArgs) ->
+    gen_server:call(?SERVER, {<<"init_sim">>, UUid, SidArgs}).
+
+send_dep(UUid, DepList, BeDepList) ->
+    gen_server:call(?SERVER, {<<"dep">>, UUid, DepList, BeDepList}).
