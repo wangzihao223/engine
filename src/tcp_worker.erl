@@ -17,6 +17,7 @@ receiver(Socket) ->
             Size = length(Data),
             io:format("length is ~.B ~n", [Size]),
             % TODO handle data
+            tcp_middleware:handle_data(Data, Socket),
             inet:setopts(Socket, [{active, once}, 
                 {packet, 4}]),
             receiver(Socket);
@@ -29,7 +30,7 @@ accepter(Listen, ID) ->
     {ok, Socket} = gen_tcp:accept(Listen),
     io:format("~B get socket ~n", [ID]),
     Controller = spawn(fun() -> receiver(Socket) end),
-    ok = gen_tcp:controlArg1ling_process(Socket, Controller),
+    ok = gen_tcp:controlling_process(Socket, Controller),
     accepter(Listen, ID). 
 
 
