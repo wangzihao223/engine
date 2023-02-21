@@ -27,9 +27,21 @@ start_link() ->
 %%                  modules => modules()}   % optional
 init([]) ->
     SupFlags = #{strategy => one_for_one,
-                 intensity => 1,
-                 period => 10},
-    ChildSpecs = [],
+                 intensity => 5,
+                 period => 1},
+    ChildSpecs = [
+        #{
+            id => "tcp_listener",
+            start => {tcp_listener, start_link, []},
+            type => supervisor
+        },
+        #{
+            id => "task_center_sup",
+            start => {task_center_sup, start_link, []},
+            type => supervisor
+        }
+    ],
+
     {ok, {SupFlags, ChildSpecs}}.
 
 %% internal functions
