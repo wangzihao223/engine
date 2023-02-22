@@ -3,7 +3,7 @@
 
 
 -export([start_center/0]).
--export([create_worker/1]).
+% -export([create_worker/1]).
 
 -define(WORKER_NUM, 5).
 
@@ -13,8 +13,8 @@ start_center() ->
 
     Center = spawn(fun() -> center_main() end),
     register(tasker_center, Center),
-    create_worker(?WORKER_NUM).
-
+    create_worker(?WORKER_NUM, Center),
+    {ok, Center}.
 
 
 center_main() ->
@@ -22,17 +22,21 @@ center_main() ->
     Queue = init_queue(Table),
     loop(Table, Queue).
 
-create_worker(0) -> ok;
-create_worker(Num) ->
-    task_server:start_link(),
-    create_worker(Num-1).
+create_worker(0, _Center) -> ok;
+create_worker(Num, Center) ->
+    task_server:start_link(Center, Num),
+    create_worker(Num-1, Center).
 
     
 init()->
     % wait tasker
     Num = ?WORKER_NUM,
     Table = ets:new(?MODULE, [set]),
-    wait_tasker(Table, Num),
+    L = wait_tasker(Table, Num),
+    % log
+    io:format("INFO: tasker registe done! ~n" ),
+    print_tasker(L),
+
     Table.
 
 
@@ -80,8 +84,7 @@ end.
 
 % return new queue
 init_queue(Table) ->
-    [{<<"worker_list">>, List}] = ets:lookup(Table, {<<"worker_list">>, 
-        Table}),
+    [{<<"worker_list">>, List}] = ets:lookup(Table, <<"worker_list">>),
     Q = queue:new(),
     init_queue(Table, List, Q). 
 
@@ -92,12 +95,10 @@ init_queue(Table, L, Q) ->
     Q1 = queue:in({Name, Pid}, Q),
     init_queue(Table, NextList, Q1).
 
-% handle_call({<<"req">>, UUid, From}, From, {Table, Queue}) ->
-%     {{value, {Name, Pid}}, Queue_0} = queue:out(Queue),
-%     ets:insert(Table, {UUid, {Name, Pid}}),
-%     From ! {Name, Pid},
-%     Queue_1 = queue:in({Name, Pid}, Queue_1),
-%     {reply, {<<"ok">>, Name, Pid}, {Table, Queue_1}}.
+print_tasker([N|L]) ->
+    io:format("INFO: tasker ~s ready ~n", [N]),
+    print_tasker(L);
+print_tasker([]) -> ok.
 
 
 
