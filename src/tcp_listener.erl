@@ -9,14 +9,13 @@
 
 -define(PORT, 9989).
 
--define(WORKERS, 2).
+-define(WORKERS, 100).
 
 start_link()->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
-
 init([]) ->
     {ok, Listen} = gen_tcp:listen(?PORT, [{active, once},{packet, 4}]),
-    io:format("start ~n"),
+    io:format("INFO: tcp listener start ~n"),
     % start works
     ChildList = make_workers(?WORKERS, Listen),
     Super = #{
