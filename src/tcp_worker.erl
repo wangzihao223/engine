@@ -11,6 +11,15 @@ start_worker(Socket, ID) ->
     Pid = spawn(fun() -> accepter(Socket, ID) end),
     {ok, Pid}.
 
+accepter(Listen, ID) ->
+    io:format("INFO: listen ~p is listening ~n", [ID]),
+    {ok, Socket} = gen_tcp:accept(Listen),
+    io:format("~B get socket ~n", [ID]),
+    Controller = spawn(fun() -> receiver(Socket) end),
+    ok = gen_tcp:controlling_process(Socket, Controller),
+    accepter(Listen, ID). 
+
+
 receiver(Socket) ->
     receive
         {tcp, Socket, Data} -> 
@@ -24,15 +33,6 @@ receiver(Socket) ->
         {tcp_closed, Socket} ->
             io:format("socket closed  ~p", [[Socket]])
     end.
-
-accepter(Listen, ID) ->
-    io:format("listen is ~p ~n", [ID]),
-    {ok, Socket} = gen_tcp:accept(Listen),
-    io:format("~B get socket ~n", [ID]),
-    Controller = spawn(fun() -> receiver(Socket) end),
-    ok = gen_tcp:controlling_process(Socket, Controller),
-    accepter(Listen, ID). 
-
 
 main() ->
     {ok, Listen} = gen_tcp:listen(9999, [{active, once},{packet, 4}]),
