@@ -9,15 +9,16 @@
 
 
 start_link()->
-    supervisor:start_link({local, ?SUP}, ?MODULE, [], []).
+    Pid = supervisor:start_link({local, ?SUP}, ?MODULE, []),
+    Pid.
 
 init([]) ->
     % start works
     % ChildList = make_workers(?WORKERS, Listen),
-    ChildList = #{
-        id => ?SUP,
+    ChildList = [#{
+        id => "task_center",
         start => {task_center, start_center, []}
-    },
+    }],
     Super = #{
             strategy => one_for_one,
             intensity => 5,
