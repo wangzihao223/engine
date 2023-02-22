@@ -32,13 +32,13 @@ init([]) ->
     ChildSpecs = [
         #{
             id => "tcp_listener",
-            start => {tcp_listener, start_link, []},
-            type => supervisor
+            start => {tcp_listener, start_link, []}
+            % type => supervisor
         },
         #{
             id => "task_center_sup",
-            start => {task_center_sup, start_link, []},
-            type => supervisor
+            start => {task_center_sup, start_link, []}
+            % type => supervisor
         }
     ],
 
