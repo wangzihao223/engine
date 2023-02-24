@@ -2,7 +2,7 @@
 -module(engine_transport).
 -export[recv_data/1].
 -export[send_data/2].
--export([connect_sim/2]).
+-export([connect_sim/3]).
 
 -export([call_many_sim/3]).
 -export([waiter/2]).
@@ -140,12 +140,13 @@ counter_up(Table) ->
 % Addr : {Ip, Port}
 % Ip: {0..255, 0..255, 0..255, 0..255} or string
 % Port: int
-connect_sim(Addr, Timeout) ->
+connect_sim(Addr, Port, Timeout) ->
     Option = [{active, once}, {packet, 4}],
-    {IP, Port} = Addr,
-    
+    % {IP, Port} = Addr,
     % connect sim
-    Response = gen_tcp:connect(IP, Port, Option, Timeout),
+    Addr1 = erlang:binary_to_list(Addr),
+    Response = gen_tcp:connect(Addr1, Port, Option, Timeout),
+    io:format("DEBUG: response is ~p ~n", [Response]),
     case Response of
         % connect sucess
         {ok, Socket} -> 
