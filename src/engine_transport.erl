@@ -14,27 +14,31 @@
 
 % recv other sim data
 % return all payload
-recv_data(Sock) ->
+recv_data(Socket) ->
+    io:format("DEBUG: XXXXX ~n"),
     receive
-        {tcp, Sock, Data} ->
+        {tcp, Socket, Data} ->
+            io:format("DDDDDDDDDDDDDDDDD~n"),
             % unpack data
             % use jiffy
             ErlData = from_bin_to_erl(Data),
-            inet:setopts(Sock, [{active, once}]),
+            io:format("DEBUG:RECV ~p ~n", ErlData),
+            inet:setopts(Socket, [{active, once}, {packet, 4}]),
             {ok, ErlData};
         % TODO:  timeout or
         % tcp close
-        {tcp_closed, Sock} ->
+        {tcp_closed, Socket} ->
             % need 
             {error, "Sim client close !"}
     end.
 
 
 % send data to sim
-send_data(Sock, Data) ->
+send_data(Socket, Data) ->
     % data is erlang obj
     BinData = jiffy:encode(Data),
-    gen_tcp:send(Sock, BinData).
+    io:format("DEBUG: send bin_data ~p ~n", [BinData]),
+    gen_tcp:send(Socket, BinData).
 
 
 % from binary to erlang obj
@@ -55,6 +59,7 @@ req_sim_method(Id, Method, Args) ->
 call_sim(Sock, Id, Method, Args) ->
     Package = req_sim_method(Id, Method, Args),
     send_data(Sock, Package),
+    io:format("TEST: socket ~p ~n", [Sock]),
     recv_data(Sock).
 
 
@@ -63,8 +68,9 @@ call_sim(Sock, Id, Method, Args) ->
 % [{Sock_1, args}, {Sock_2, args2}]
 call_many_sim(SockArgs, Table, Method) ->
 
-    % get socket list from table
-    [{<<"socket_list", Sockets>>}] = ets:lookup(Table, <<"socket_list">>),
+    put(<<"counter">>, 0),
+    % get socket list from table 
+    [{<<"sock_list">>, Sockets}] = ets:lookup(Table, <<"sock_list">>),
     % list to set
     SocketSet = sets:from_list(Sockets),
     % spwan new waiter
@@ -83,6 +89,7 @@ reply_waiter(Waiter, Sock, Data) ->
 % call sim func have reply module 
 call_sim_add_reply(Sock, Id, Method, Args, Waiter) ->
     Response = call_sim(Sock, Id, Method, Args),
+    io:format("DEBUG: RESPONSE IS  ~p ~n", [Response]),
     reply_waiter(Waiter, Sock, Response).
 
 waiter(Master, Set) ->
@@ -117,24 +124,26 @@ waiter(Master, Set, RecvSet, Res) ->
 loop_call_sim([], _Sockets, _Table, _Method, _Waiter) ->
     % wait Water reply
     receive
-        {ok, Res} -> Res
+        {ok, Res} ->
+            io:format("DEBUG: RES IS ~p ~n", [Res]),
+            Res
     end;
 loop_call_sim(SockArgs, SocketSet, Table, Method, Waiter) ->
     [{Sock, Args} | NextSockArgs] = SockArgs,
     % get id from table
-    [{<<"counter">>, Id}] = ets:lookup(Table, <<"counter">>),
+    Id = counter_up(),
     %  spawn new process
     spawn(engine_transport, call_sim_add_reply, [Sock, Id, Method, Args, Waiter]),
-    % counter up
-    counter_up(Table),
     loop_call_sim(NextSockArgs, SocketSet, Table, Method, Waiter).
 
 % counter up
-counter_up(Table) ->
+counter_up() ->
     % get id from table
-    [{<<"counter">>, Id}] = ets:lookup(Table, <<"counter">>),
-    ets:insert(Table, {<<"counter">>, Id+1}).
-
+    MsgId = get(<<"counter">>),
+    % io:format("DEBUG: MsgId  is ~d ~n", [MsgId]),
+    io:format("DEBUG: MsgId is ~b ~n", [MsgId]),
+    put(<<"counter">>, MsgId+1),
+    MsgId.
 
 % connect sim 
 % Addr : {Ip, Port}

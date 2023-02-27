@@ -31,7 +31,8 @@ receiver(Socket) ->
                 {packet, 4}]),
             receiver(Socket);
         {tcp_closed, Socket} ->
-            io:format("socket closed  ~p", [[Socket]])
+            io:format("INFO: socket closed  ~p ~n", [[Socket]]),
+            io:format("INFO: receiver process end ~n")
     end.
 
 main() ->

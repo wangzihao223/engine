@@ -39,20 +39,25 @@ make_task(Args, Sock) ->
     tasker_center ! {<<"req">>, UUid, self()},
     {Name, _Pid} = get_tasker(),
     Reply = gen_server:call(Name, {<<"make_task">>, UUid, ConfigList1}),
-    BR = term_to_bin(Reply),
-    gen_tcp:send(Sock, BR).
+    {State, Body} = Reply,
+    BR = term_to_bin([State, Body]),
+    gen_tcp:send(Sock, BR),
+    io:format("INFO: make_task command is true ~n").
 
 config_sim(Args, Sock) ->
+    io:format("DBUG: config_sim Args: ~p ~n", [Args]),
     [UUid, {SidArgs}] = Args,
-    task_center ! {<<"req">>, UUid, self()},
+    tasker_center ! {<<"req">>, UUid, self()},
+    io:format("DBUG: send task_center sucess ~n"),
     {Name, _Pid} = get_tasker(),
     {Reply} = gen_server:call(Name, {<<"config_sim">>, UUid, SidArgs}),
     BR = term_to_bin(Reply),
     gen_tcp:send(Sock, BR).
 
 make_dep(Args, Sock) ->
+    % DepList [{sid_1, [xx, xxx, xxx]}, {sid_2, [xx, xxx, xxxx]}, ...]
     [UUid, {DepList}, {BeDepList}] = Args, 
-    task_center ! {<<"req">>, UUid, self()},
+    tasker_center ! {<<"req">>, UUid, self()},
     {Name, _Pid} = get_tasker(),
     {Reply} = gen_server:call(Name, {<<"make_dep">>, 
         UUid, DepList, BeDepList}),
@@ -61,13 +66,11 @@ make_dep(Args, Sock) ->
 
 start_sim(Args, Sock) ->
     [UUid, MaxStep] = Args,
-    task_center ! {<<"req">>, UUid, self()},
+    tasker_center ! {<<"req">>, UUid, self()},
     {Name, _Pid} = get_tasker(),
     {Reply} = gen_server:call(Name, {<<"start">>, UUid, MaxStep}),
     BR = term_to_bin(Reply),
     gen_tcp:send(Sock, BR).
-
-    
 
 
 get_tasker() ->

@@ -39,8 +39,8 @@ handle_make_task(ConfigList, Table, UUid) ->
     try 
         {ManagerPid, MonitorPid} = sim_manager:new_manager(ConfigList, UUid),
         Dict = dict:new(),
-        NewDict = dict:append(<<"pid">>, {ManagerPid, MonitorPid}, Dict),
-        Dict1 = dict:append(<<"manager_pid">>, ManagerPid, NewDict),
+        NewDict = dict:store(<<"pid">>, {ManagerPid, MonitorPid}, Dict),
+        Dict1 = dict:store(<<"manager_pid">>, ManagerPid, NewDict),
         ets:insert(Table, {UUid, Dict1}),
         {reply, {<<"ok">>, UUid}, Table}
     catch
@@ -53,7 +53,7 @@ handle_make_task(ConfigList, Table, UUid) ->
 save_sid_list(Table, SidArgs, UUid) ->
     SidList = get_sid_set(SidArgs),
     [{UUid, Dict}] = ets:lookup(Table, UUid),
-    Dict1 =  dict:append(<<"sid_list">>, SidList, Dict),
+    Dict1 =  dict:store(<<"sid_list">>, SidList, Dict),
     ets:insert(Table, {UUid, Dict1}).
 
 handle_start_manager(Table, UUid, SidArgs) ->
@@ -61,9 +61,10 @@ handle_start_manager(Table, UUid, SidArgs) ->
         [] ->
             {reply, {<<"uuid_error">>, "uuid is not exist"},Table};
         [{UUid, Dict}] ->
+            io:format("DEBUG: start manager Dict ~p ~n", [Dict]),
             {ok, {ManagerPid, _}} = dict:find(<<"pid">>, Dict),
             ManagerPid ! {<<"init">>, SidArgs},
-            NewDict = dict:append(<<"sim_args">>, SidArgs, Dict),
+            NewDict = dict:store(<<"sim_args">>, SidArgs, Dict),
             ets:insert(Table, {UUid, NewDict}),
             {reply, {<<"ok">>}, Table}
     end.
@@ -86,8 +87,8 @@ handle_dep(Table, UUid, DepList, BeDepList) ->
             {ok, {ManagerPid, _}} = dict:find(<<"pid">>, Dict),
             ManagerPid ! {<<"dep">>, DepList, BeDepList},
             % save DepList and BeDepList
-            Dict_1 = dict:append(<<"dep_list">>, DepList, Dict),
-            Dict_2 = dict:append(<<"be_dep_list">>, BeDepList, Dict_1),
+            Dict_1 = dict:store(<<"dep_list">>, DepList, Dict),
+            Dict_2 = dict:store(<<"be_dep_list">>, BeDepList, Dict_1),
             ets:insert(Table, {UUid, Dict_2}),
             {reply, {<<"ok">>},Table}
     end.

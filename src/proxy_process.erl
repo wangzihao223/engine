@@ -4,13 +4,15 @@
 -export([create_group_process/3]).
 
 -import(until, [sets_equal/2]).
+-import(engine_transport, [connect_sim/3]).
 
 -define(TIMEOUT, 30000).
 
 create_group_process(_, [], _) -> ok;
 create_group_process(Manager, SidList, MaxStep) ->
-    [{Sid, Step}| NextSidList] = SidList,
-    new_process(Manager, Sid, Step, MaxStep),
+    io:format("TEST: SidList ~p ~n", [SidList]),
+    [Sid| NextSidList] = SidList,
+    new_process(Manager, Sid, 0, MaxStep),
     create_group_process(Manager, NextSidList, MaxStep).
 
 
@@ -34,15 +36,26 @@ proxy_process(Manager, Sid, Step, MaxStep) ->
         MaxStep).
 
 process_init(Manager, Sid) ->
+
+    % use process dic
+    use_process_dict(),
+    io:format("DEBUG: create counter ~n"),
     % link manager
     link(Manager),
     Table = registe_manager(Manager, Sid),
+    % connect_remote_sim
+    connect_remote_sim(Table, Sid, Manager),
+    % wait init
     DepTuple = get_dep_relationship(Manager, Sid),
     {Table, DepTuple}. 
 
+use_process_dict() ->
+    % insert counter
+    put(<<"counter">>, 0).
 
 % registe self to manager
 registe_manager(Manager, Sid) ->
+    io:format("DEBUG: Manager is ~p ~n", [Manager]),
     Manager ! {<<"registe">>, Sid, self()},
     receive
         {ok, _Manager, Table} -> Table
@@ -50,6 +63,15 @@ registe_manager(Manager, Sid) ->
         ?TIMEOUT ->
             throw({<<"registe_time_out_error">>, <<"time out">>})
     end.
+
+% connect remote sim
+connect_remote_sim(Table, Sid, Monitor) ->
+    [{<<"config_list">>, ConfigList}] = ets:lookup(Table, <<config_list>>),
+    ConfigDic = dict:from_list(ConfigList),
+    [Address, Port,Timeout] = dict:find(Sid, ConfigDic),
+    Sock = connect_sim(Address, Port, Timeout),
+    Monitor ! {<<"send_sid_sock">>, Sid, Sock, self()}.
+
 
 % get dependency
 get_dep_relationship(Manager, Sid) ->

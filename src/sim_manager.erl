@@ -4,12 +4,12 @@
 -export([new_manager/2]).
 -export([sim_manager_monitor/1]).
 
--import(engine_transport, [connect_sim/2]).
+-import(engine_transport, [connect_sim/3]).
 -import(remote_func, [init_all_sim/2]).
 -import(until, [sets_equal/2]).
 
 % set time_out 
--define(TIME_OUT, 300000).
+-define(TIME_OUT, 5000).
 
 % make a manager
 new_manager(ConfigList, UUid) ->
@@ -22,10 +22,12 @@ new_manager(ConfigList, UUid) ->
 
 
 manager(ConfigList, UUid) ->
+    io:format("DEBUG: Manager Pid is ~p ~n", [self()]),
     % init
     Table = manager_init(ConfigList, UUid),
     % get sidset
     [{<<"sid_set">>, SidSet}] = ets:lookup(Table, <<"sid_set">>),
+    io:format("TEST: MANAGER INIT END ~n"),
     manager_process(SidSet, Table).
 
 % manager init
@@ -46,30 +48,94 @@ make_new_table() ->
     Table = ets:new(?MODULE, [set, protected]),
     Table.
 
-
+% configList : [{Sid_1, [Addr_1, Timeout_1]}, {Sid_2, [Addr_2, Timeout_2]}]
 % manager process init
 manager_process_init(Table, ConfigList) ->
-    % connect sim
-    connect_all_sim(ConfigList, Table),
-
-    % save ConfigList 
+    
     save_config_list(ConfigList, Table),
+    % wait remote process registe and wait connect sim
+    wait_connect_all_sim(Table, ConfigList),
 
     % init buffer
     init_buffer(Table),
+    io:format("INFO: Wait init ! ~n"),
     % init sim 
     % wait init command
     SidArgs = wait_init(),
-    % wait dep
-    wait_dep(Table),
     % init all sim
     % now i don't care init resault
-    init_all_sim(SidArgs, Table),
+    [{_, SidSet}]= ets:lookup(Table, <<"sid_set">>),
+    [{_, SidPidDic}] = ets:lookup(Table, <<"sid_pid">>),
+    call_proxy_init(SidPidDic, SidArgs, SidSet),
+    % wait dep
+    wait_dep(Table),
     ok.
+
+call_proxy_init(_SidPidDic, [], SidSet)-> 
+    RecvSet = sets:new(),
+    wait_init_call(SidSet, RecvSet);
+call_proxy_init(SidPidDic, SidArgs, SidSet) ->
+    [{Sid, Args} | NextSidArgs] = SidArgs,
+    {ok, Pid} = dict:find(Sid, SidPidDic), 
+    Pid ! {<<"init_func">>, Sid, Args},
+    call_proxy_init(SidPidDic, NextSidArgs, SidSet). 
+
+wait_init_call(SidSet, RecvSet) ->
+    case sets_equal(SidSet, RecvSet) of
+        false ->
+            receive
+                {<<"init_done">>, Sid} ->
+                    NewSet = sets:add_element(Sid, RecvSet),
+                    wait_init_call(SidSet,NewSet)
+            end;
+        true ->
+            ok
+    end.
+
+
+
+
+wait_connect_all_sim(Table, ConfigList) ->
+    save_sids(Table, ConfigList),
+    SidSet = ets:lookup(Table, <<"sid_set">>),
+    RecvSet = sets:new(),
+    wait_proxy_regist(SidSet, RecvSet, Table),
+    recv_sid_sock(SidSet, RecvSet, Table, []).
+
+recv_sid_sock(SidSet, RecvSet, Table, PidList) ->
+    case sets_equal(SidSet, RecvSet) of
+        false ->
+            receive
+                {<<"send_sid_sock">>, Sid, Sock, Pid} ->
+                    NextPidList = [Pid | PidList],
+                    save_sid_sock(Sid, Sock, Table),
+                    % save sock_sid
+                    save_sock_sid(Sid, Sock, Table),
+                    recv_sid_sock(SidSet, RecvSet, Table, NextPidList)
+            end;
+        true ->
+           loop_send_ok(PidList) 
+        end.
+
+loop_send_ok([]) -> ok;
+loop_send_ok(PidList) ->
+    [Pid | NextPidList] = PidList,
+    Pid ! {<<"all_end">>},
+    loop_send_ok(NextPidList).
+
+
+% save sid
+save_sids(_Table, []) -> ok;
+save_sids(Table,  ConfigList) ->
+    [{Sid, _} | NextConfigList] = ConfigList,
+    save_sid_set(Table, Sid),
+    save_sids(Table, NextConfigList). 
+
 
 init_buffer(Table) ->
     % get sid_sets
     [{<<"sid_set">>, SidSet}] = ets:lookup(Table, <<"sid_set">>),
+    io:format("DEBUG: SidSet ~p ~n", [SidSet]),
     SidList = sets:to_list(SidSet),
     init_buffer_loop(Table, SidList).
      
@@ -101,14 +167,12 @@ save_statement_dep(DepList, BeDepList, Table) ->
 
 % after init 
 % main process
-manager_process(SidSet, Table) ->
-    % new RecvSet
-    RecvSet = sets:new(),
-    manager_process(SidSet, RecvSet, Table).
+% manager_process(SidSet, Table) ->
+%     % new RecvSet
+%     RecvSet = sets:new(),
+%     manager_process(SidSet, RecvSet, Table).
 
-manager_process(SidSet, RecvSet, Table) ->
-    % wait proxy regist
-    wait_proxy_regist(SidSet, RecvSet, Table),
+manager_process(SidSet, Table) ->
     % make a priority queue
     Pq = heapq:new(),
     % start
@@ -246,13 +310,17 @@ choice_proxy_run(Pq, Step, Res, SidSet) ->
 
 
 wait_proxy_regist(SidSet, RecvSet, Table) ->
+    io:format("DEBUG: wait_proxy_regist ~n"),
     % compare sidset and recvset
     case sets_equal(SidSet, RecvSet) of
         % continue wait proxy regist
         false ->
+            io:format("DEBUG: START ~n"),
             receive
                 % get sid
                 {<<"registe">>, Sid, Pid} ->
+                    % receive proxy process registe
+                    io:format("DEBUG: receive proxy process reigste ~n"),
                     % add recvset
                     NewRecvSet = sets:add_element(Sid, RecvSet),
                     % save sid_pid
@@ -263,6 +331,7 @@ wait_proxy_regist(SidSet, RecvSet, Table) ->
             end;
         % break
         true -> 
+            io:format("DEBUGE: proxy regist is end"),
             ok
     end.
 
@@ -273,11 +342,11 @@ save_sid_pid(Sid, Pid, Table) ->
         % not find
         [] ->
             Dict = dict:new(),
-            NewDict = dict:append(Sid, Pid, Dict),
+            NewDict = dict:store(Sid, Pid, Dict),
             % save ets
             ets:insert(Table, {<<"sid_pid">>, NewDict});
         [{<<"sid_pid">>, Dict}] ->
-            NewDict = dict:append(Sid, Pid, Dict),
+            NewDict = dict:store(Sid, Pid, Dict),
             % update
             ets:insert(Table, {<<"sid_pid">>, NewDict})
     end.
@@ -286,32 +355,15 @@ save_sid_pid(Sid, Pid, Table) ->
 % wait init command
 wait_init() ->
     receive
-        % sidArgs : [{sid1, Args1}, ...]
-        % Args1 : [arg1, arg2, arg3 ...]
-        {<<"init">>, SidArgs} -> 
+        {<<"init">>, SidArgs} ->
             SidArgs
-
-        % set timeout
-        after ?TIME_OUT ->
-            throw({<<"init_time_out_error">>, <<"wait init time out !">>})
+    after ?TIME_OUT ->
+        io:format("ERROR: TIMEOUT !! ~n"),
+        throw("error: timeout !! ~n")
     end.
 
 
 % configList : [{Sid_1, [Addr_1, Timeout_1]}, {Sid_2, [Addr_2, Timeout_2]}]
-connect_all_sim([], _Table) -> ok;
-connect_all_sim(ConfigList, Table) ->
-    [{Sid, [Address, Timeout]} | NextConfigList] = ConfigList,
-    [IP, Port] = Address,
-    % IP allow string
-    ClientSock = connect_sim({IP, Port}, Timeout),
-    % save sid_sock
-    save_sid_sock(Sid, ClientSock, Table),
-    % save sock_sid
-    save_sock_sid(Sid, ClientSock, Table),
-    % save_sid_set
-    save_sid_set(Table, Sid),
-    % loop
-    connect_all_sim(NextConfigList, Table).
 
 % save sid_sock
 save_sid_sock(Sid, Sock, Table) ->
@@ -322,12 +374,12 @@ save_sid_sock(Sid, Sock, Table) ->
             % sid_sock is dict
             Dict = dict:new(),
             % insert now sid sock
-            NewDict = dict:append(Sid, Sock, Dict),
+            NewDict = dict:store(Sid, Sock, Dict),
             % insert NewDict to Table
             ets:insert(Table,{<<"sid_sock">>, NewDict});
         [{<<"sid_sock">>, Dict}] ->
             % insert now sid sock
-            NewDict = dict:append(Sid, Sock, Dict),
+            NewDict = dict:store(Sid, Sock, Dict),
             ets:insert(Table, {<<"sid_sock">>, NewDict})
     end.
 
@@ -345,12 +397,12 @@ save_sock_sid(Sid, Sock, Table) ->
         % not found  insert new sock_sid
         [] ->
             Dict = dict:new(),
-            NewDict = dict:append(Sock, Sid, Dict),
+            NewDict = dict:store(Sock, Sid, Dict),
             % insert NewDict to Table
             ets:insert(Table, {<<"sock_sid">>, NewDict});
         [{<<"sock_sid">>, Dict}] ->
             % insert now sid sock
-            NewDict = dict:append(Sock, Sid, Dict),
+            NewDict = dict:store(Sock, Sid, Dict),
             ets:insert(Table, {<<"sock_sid">>, NewDict})
     end.
 
@@ -362,7 +414,8 @@ save_sid_set(Table, Sid) ->
             SidSet = sets:new(),
             NewSidSet = sets:add_element(Sid, SidSet),
             % insert newSidSet to Table,
-            ets:insert(Table, {<<"sid_set">>, NewSidSet});
+            ets:insert(Table, {<<"sid_set">>, NewSidSet}),
+            io:format("DEBUG: sid_set save ~p ~n", [NewSidSet]);
         [{<<"sid_set">>, SidSet}] ->
             % insert now sid sock
             NewSidSet = sets:add_element(Sid, SidSet),
@@ -374,10 +427,11 @@ save_sid_set(Table, Sid) ->
 % TODO： add monitor 
 sim_manager_monitor(MointoredPid) ->
     Ref = erlang:monitor(process, MointoredPid),
+    io:format("INFO: MOINTOR START !! ~n"),
     receive
         {'DOWN', Ref, process, MointoredPid, Why} ->
             % handle_error(Why)
-            io:format("~p ~n", [Why])
+            io:format("INFO: sim manager is down ~p ~n", [Why])
     end.          
 
 % % handle different errors
