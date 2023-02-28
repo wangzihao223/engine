@@ -1,26 +1,26 @@
 -module(proxy_process).
 
--export([new_process/4]).
--export([create_group_process/3]).
+-export([new_process/3]).
+-export([create_group_process/2]).
 
 -import(until, [sets_equal/2]).
 -import(engine_transport, [connect_sim/3]).
 
 -define(TIMEOUT, 30000).
 
-create_group_process(_, [], _) -> ok;
-create_group_process(Manager, SidList, MaxStep) ->
+create_group_process(_, []) -> ok;
+create_group_process(Manager, SidList) ->
     io:format("TEST: SidList ~p ~n", [SidList]),
     [Sid| NextSidList] = SidList,
-    new_process(Manager, Sid, 0, MaxStep),
-    create_group_process(Manager, NextSidList, MaxStep).
+    new_process(Manager, Sid, 0),
+    create_group_process(Manager, NextSidList).
 
 
-new_process(Manager, Sid, Step, MaxStep) ->
+new_process(Manager, Sid, Step) ->
     spawn(fun() -> proxy_process(Manager, Sid,
-        Step, MaxStep) end).
+        Step) end).
 
-proxy_process(Manager, Sid, Step, MaxStep) ->
+proxy_process(Manager, Sid, Step) ->
     % process init
     {Table, DepTuple} = process_init(Manager, Sid),
     {Dep, BeDep} = DepTuple,
@@ -32,8 +32,17 @@ proxy_process(Manager, Sid, Step, MaxStep) ->
     Sock = dict:find(Sid, SidSock),
     % get buffer key
     BufferKey = unicode:characters_to_binary([Sid, <<"_buff">>]),
+    % wait process start
+    MaxStep = wait_process_start(),
     main_loop(Manager, Sid, WaitSet, Sock, SendList, Table, BufferKey, Step,
         MaxStep).
+
+wait_process_start() ->
+    receive
+        {<<"max_step">>, MaxStep} ->
+            MaxStep
+    end.
+
 
 process_init(Manager, Sid) ->
 
