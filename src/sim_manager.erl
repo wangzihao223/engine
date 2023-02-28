@@ -73,26 +73,33 @@ manager_process_init(Table, ConfigList) ->
 
 call_proxy_init(_SidPidDic, [], SidSet)-> 
     RecvSet = sets:new(),
-    wait_init_call(SidSet, RecvSet);
+    wait_init_call(SidSet, RecvSet, []);
 call_proxy_init(SidPidDic, SidArgs, SidSet) ->
     [{Sid, Args} | NextSidArgs] = SidArgs,
     {ok, Pid} = dict:find(Sid, SidPidDic), 
-    Pid ! {<<"init_func">>, Sid, Args},
+    Pid ! {<<"init_func">>, Sid, Args, self()},
     call_proxy_init(SidPidDic, NextSidArgs, SidSet). 
 
-wait_init_call(SidSet, RecvSet) ->
+wait_init_call(SidSet, RecvSet, PidList) ->
     case sets_equal(SidSet, RecvSet) of
         false ->
             receive
-                {<<"init_done">>, Sid} ->
+                {<<"init_done">>, Sid, Pid} ->
+                    NewPidList = [Pid | PidList],
                     NewSet = sets:add_element(Sid, RecvSet),
-                    wait_init_call(SidSet,NewSet)
+                    wait_init_call(SidSet,NewSet, NewPidList)
             end;
         true ->
-            ok
+            all_init_done(PidList)
     end.
 
 
+% all_sim_init_done()
+all_init_done([]) -> ok;
+all_init_done(PidList) ->
+    [Pid | NextPidList] = PidList,
+    Pid ! {<<"all_done">>, self()},
+    all_init_done(NextPidList).
 
 
 wait_connect_all_sim(Table, ConfigList) ->
@@ -120,7 +127,7 @@ recv_sid_sock(SidSet, RecvSet, Table, PidList) ->
 loop_send_ok([]) -> ok;
 loop_send_ok(PidList) ->
     [Pid | NextPidList] = PidList,
-    Pid ! {<<"all_end">>},
+    Pid ! {<<"all_end">>, self()},
     loop_send_ok(NextPidList).
 
 
