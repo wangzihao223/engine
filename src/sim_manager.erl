@@ -260,12 +260,12 @@ handle_req(Pq, SidSet, RecvSidSet, Table) ->
                     {NewPq, NewRecvSidSet} = handle_proxy_req(Step, Sid, Pid, Pq, RecvSidSet),
                     handle_req(NewPq, SidSet, NewRecvSidSet, Table);
                 
-                % TODO : add other request
-                % handle proxy_dep 
-                % find proxy_dep and send proxy
-                {<<"proxy_dep">>, Sid, Pid} ->
-                    handle_proxy_dep(Table, Sid, Pid),
-                    handle_req(Pq, SidSet, RecvSidSet, Table);
+
+                % % handle proxy_dep 
+                % % find proxy_dep and send proxy
+                % {<<"proxy_dep">>, Sid, Pid} ->
+                %     handle_proxy_dep(Table, Sid, Pid),
+                %     handle_req(Pq, SidSet, RecvSidSet, Table);
                 % update buffer
                 {<<"update_buffer">>, UpdateList, Pid} ->
                     handle_update_buffer(Table, UpdateList, Pid),
