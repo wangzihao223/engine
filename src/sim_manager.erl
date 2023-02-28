@@ -188,6 +188,7 @@ wait_dep(Table) ->
             % tello other proxy
             [{<<"sid_pid">>, SidPidDic}] = est:look_up(Table, <<"sid_pid">>),
             SidPidList = dict:to_list(SidPidDic),
+            % tell other proxy dep
             tell_proxy_dep(Table, SidPidList);
         _ -> ok
     end.

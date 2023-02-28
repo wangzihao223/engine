@@ -99,9 +99,8 @@ handle_dep(Table, UUid, DepList, BeDepList) ->
 handle_start(Table, UUid, MaxStep) ->
     [{UUid, Dict}] = ets:lookup(Table, UUid),
     {ok, ManagerPid} = dict:find(<<"manager_pid">>, Dict),
-    {ok, SidList} = dict:find(<<"sid_list">>, Dict),
-    proxy_process:create_group_process(
-        ManagerPid, SidList, MaxStep),
+    % tell manager start
+    ManagerPid ! {<<"start">>, MaxStep},
     {reply, {<<"ok">>}, Table}.
 
 % atom server name
