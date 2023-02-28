@@ -45,7 +45,9 @@ process_init(Manager, Sid) ->
     Table = registe_manager(Manager, Sid),
     % connect_remote_sim
     connect_remote_sim(Table, Sid, Manager),
-    % wait init
+    % init sim
+    init_sim(Table, Sid),
+    % wait dep
     DepTuple = get_dep_relationship(Manager, Sid),
     {Table, DepTuple}. 
 
@@ -68,11 +70,39 @@ registe_manager(Manager, Sid) ->
 connect_remote_sim(Table, Sid, Monitor) ->
     [{<<"config_list">>, ConfigList}] = ets:lookup(Table, <<config_list>>),
     ConfigDic = dict:from_list(ConfigList),
-    [Address, Port,Timeout] = dict:find(Sid, ConfigDic),
+    {ok, [Address, Port,Timeout]} = dict:find(Sid, ConfigDic),
     Sock = connect_sim(Address, Port, Timeout),
-    Monitor ! {<<"send_sid_sock">>, Sid, Sock, self()}.
+    Monitor ! {<<"send_sid_sock">>, Sid, Sock, self()},
+    wait_connect_end().
+
+init_sim(Table, Sid) ->
+    [{<<"sid_sock">>, SidSockDic}] = ets:lookup(Table, <<"sid_sock">>),
+    {ok, Sock} = dict:find(Sid, SidSockDic),
+    receive
+        {<<"init_func">>, Sid, Args, Manager} ->
+            Id = engine_transport:counter_up(),
+            Res = engine_transport:call_sim(Sock, Id, <<"init">>, Args),
+            io:format("DEBUG: INTI ~p ~n", [Res]),
+            %reply ok
+            Manager ! {<<"init_done">>, Sid, self()},
+            % wait other sim
+            wait_other_sim()
+
+    end. 
 
 
+% wait_connect_end
+wait_connect_end() ->
+    receive
+        {<<"all_end">>, _Pid} ->
+            ok
+    end.
+
+wait_other_sim() ->
+    receive
+        {<<"all_down">>, _Pid} ->
+            ok
+    end.
 % get dependency
 get_dep_relationship(Manager, Sid) ->
     Manager ! {<<"proxy_dep">>, Sid, self()},
