@@ -9,7 +9,7 @@
 -import(until, [sets_equal/2]).
 
 % set time_out 
--define(TIME_OUT, 5000).
+-define(TIME_OUT, 3000).
 
 % make a manager
 new_manager(ConfigList, UUid) ->
@@ -62,6 +62,7 @@ manager_process_init(Table, ConfigList) ->
     % init sim 
     % wait init command
     SidArgs = wait_init(),
+    io:format("DEBUG: SidArgs  ~p ~n", [SidArgs]),
     % init all sim
     % now i don't care init resault
     [{_, SidSet}]= ets:lookup(Table, <<"sid_set">>),
@@ -116,7 +117,7 @@ wait_init_call(SidSet, RecvSet, PidList) ->
 all_init_done([]) -> ok;
 all_init_done(PidList) ->
     [Pid | NextPidList] = PidList,
-    Pid ! {<<"all_done">>, self()},
+    Pid ! {<<"all_down">>, self()},
     all_init_done(NextPidList).
 
 % remove_lock
@@ -124,11 +125,13 @@ remove_lock([]) -> o;
 remove_lock(SidPidList) ->
     [{_Sid, Pid} | NextSidPidList] = SidPidList,
     Pid ! {<<"ready_init">>},
+    io:format("DEBUG: reday init ! ~n"),
     remove_lock(NextSidPidList).
 
 wait_connect_all_sim(Table, ConfigList) ->
     save_sids(Table, ConfigList),
-    SidSet = ets:lookup(Table, <<"sid_set">>),
+    [{_, SidSet}] = ets:lookup(Table, <<"sid_set">>),
+    io:format("DEBUG: SidSet is ~p ~n", [SidSet]),
     RecvSet = sets:new(),
     wait_proxy_regist(SidSet, RecvSet, Table),
     recv_sid_sock(SidSet, RecvSet, Table, []).
@@ -138,14 +141,19 @@ recv_sid_sock(SidSet, RecvSet, Table, PidList) ->
         false ->
             receive
                 {<<"send_sid_sock">>, Sid, Sock, Pid} ->
+                    io:format("DEBUG get send_sid_sock ~n"),
                     NextPidList = [Pid | PidList],
                     save_sid_sock(Sid, Sock, Table),
                     % save sock_sid
                     save_sock_sid(Sid, Sock, Table),
-                    recv_sid_sock(SidSet, RecvSet, Table, NextPidList)
+                    NRecvSet = sets:add_element(Sid, RecvSet),
+                    recv_sid_sock(SidSet, NRecvSet, Table, NextPidList)
             end;
         true ->
-           loop_send_ok(PidList) 
+            io:format("DEBUG: PidList ~p", [PidList]), 
+            loop_send_ok(PidList),
+        
+            io:format("DEBUG: end loop_send_ok~n")
         end.
 
 loop_send_ok([]) -> ok;
@@ -186,7 +194,7 @@ wait_dep(Table) ->
         {<<"dep">>, DepList, BeDepList} ->
             save_statement_dep(DepList, BeDepList, Table),
             % tello other proxy
-            [{<<"sid_pid">>, SidPidDic}] = est:look_up(Table, <<"sid_pid">>),
+            [{<<"sid_pid">>, SidPidDic}] = ets:lookup(Table, <<"sid_pid">>),
             SidPidList = dict:to_list(SidPidDic),
             % tell other proxy dep
             tell_proxy_dep(Table, SidPidList);
@@ -234,6 +242,7 @@ handle_req(Pq, SidSet, Table) ->
 % and other contral
 handle_req(Pq, SidSet, RecvSidSet, Table) ->
     % sets equal
+    io:format("INFO: RECEIVE REQ ! ~n"),
     case sets_equal(SidSet, RecvSidSet) of
         % equal
         true ->
@@ -257,7 +266,7 @@ handle_req(Pq, SidSet, RecvSidSet, Table) ->
             receive
                 % handle_proxy_req
                 {<<"proxy_run">>, Step, Sid, Pid} ->
-
+                    io:format("INFO: PROXY_RUN ~n"),
                     {NewPq, NewRecvSidSet} = handle_proxy_req(Step, Sid, Pid, Pq, RecvSidSet),
                     handle_req(NewPq, SidSet, NewRecvSidSet, Table);
                 
@@ -294,6 +303,7 @@ handle_proxy_dep(Table, Sid, Pid) ->
         % BeDep : [sid_3, sid]
     {ok, SidList} = dict:find(Sid, DepDict),
     {ok, BeSidList} = dict:find(Sid, BeDepDict),
+    io:format("DEBUG: PID ~p, DEP ~n", [Pid]),
     Pid ! {SidList, BeSidList}.
 
 handle_update_buffer(_Table, [], Pid) -> 
@@ -400,6 +410,7 @@ save_sid_pid(Sid, Pid, Table) ->
 wait_init() ->
     receive
         {<<"init">>, SidArgs} ->
+            io:format("DEBUG: send init sucess ~n"),
             SidArgs
     after ?TIME_OUT ->
         io:format("ERROR: TIMEOUT !! ~n"),

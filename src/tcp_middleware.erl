@@ -39,6 +39,7 @@ make_task(Args, Sock) ->
     tasker_center ! {<<"req">>, UUid, self()},
     {Name, _Pid} = get_tasker(),
     Reply = gen_server:call(Name, {<<"make_task">>, UUid, ConfigList1}),
+    io:format("DEBUG: Reply ~p ~n", [Reply]),
     {State, Body} = Reply,
     BR = term_to_bin([State, Body]),
     gen_tcp:send(Sock, BR),

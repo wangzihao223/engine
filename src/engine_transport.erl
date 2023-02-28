@@ -8,6 +8,7 @@
 -export([waiter/2]).
 -export([call_sim_add_reply/5]).
 -export([call_sim/4]).
+-export([counter_up/0]).
 
 -import(until, [sets_equal/2]).
 
@@ -21,8 +22,8 @@ recv_data(Socket) ->
             io:format("DDDDDDDDDDDDDDDDD~n"),
             % unpack data
             % use jiffy
+            io:format("DEBUG: Data ~s ~n", [Data]),
             ErlData = from_bin_to_erl(Data),
-            io:format("DEBUG:RECV ~p ~n", ErlData),
             inet:setopts(Socket, [{active, once}, {packet, 4}]),
             {ok, ErlData};
         % TODO:  timeout or
@@ -58,8 +59,10 @@ req_sim_method(Id, Method, Args) ->
 % rpc sim
 call_sim(Sock, Id, Method, Args) ->
     Package = req_sim_method(Id, Method, Args),
+    io:format("DEBUG: Package IS ~p ~n", [Package]),
     send_data(Sock, Package),
     io:format("TEST: socket ~p ~n", [Sock]),
+    io:format("DEBUG: INIT SOCK PID ~p ~n", [Sock]),
     recv_data(Sock).
 
 

@@ -38,12 +38,13 @@ handle_make_task(ConfigList, Table, UUid) ->
     % new manager
     try 
         {ManagerPid, MonitorPid} = sim_manager:new_manager(ConfigList, UUid),
-        SidList = save_sid_list(Table, ConfigList, UUid),
-        proxy_process:create_group_process(ManagerPid, SidList),
         Dict = dict:new(),
+        % for new task make new dic
         NewDict = dict:store(<<"pid">>, {ManagerPid, MonitorPid}, Dict),
         Dict1 = dict:store(<<"manager_pid">>, ManagerPid, NewDict),
         ets:insert(Table, {UUid, Dict1}),
+        SidList = save_sid_list(Table, ConfigList, UUid),      
+        proxy_process:create_group_process(ManagerPid, SidList),
         {reply, {<<"ok">>, UUid}, Table}
     catch
         throw:X -> {reply, {<<"thrown">>, X}, Table};
@@ -67,6 +68,7 @@ handle_start_manager(Table, UUid, SidArgs) ->
             io:format("DEBUG: start manager Dict ~p ~n", [Dict]),
             {ok, {ManagerPid, _}} = dict:find(<<"pid">>, Dict),
             ManagerPid ! {<<"init">>, SidArgs},
+            io:format("DEBUG: send ok ~n"),
             NewDict = dict:store(<<"sim_args">>, SidArgs, Dict),
             ets:insert(Table, {UUid, NewDict}),
             {reply, {<<"ok">>}, Table}

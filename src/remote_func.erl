@@ -3,7 +3,7 @@
 -export([init_all_sim/2]).
 -export([call_setup_done/2]).
 -export([call_step/4]).
--export([call_get_data/2]).
+-export([call_get_data/3]).
 -export([call_stop/2]).
 
 -import(engine_transport, [call_many_sim/3]).
@@ -77,7 +77,8 @@ call_get_data(Sock, _Table, _OutPuts) ->
     % get message id
     Id = counter_up(),
     % OutPuts 先设置为空
-    {ok, Data} = call_sim(Sock, Id, <<"get_data">>, _OutPuts),
+    {ok, Data} = call_sim(Sock, Id, <<"get_data">>, [_OutPuts]),
+    io:format("DEBUG: get data ~p ~n", [Data]),
     [_MsgId, Type, GetData] = Data,
     if Type =:= 1 ->
         % success
@@ -88,8 +89,8 @@ call_get_data(Sock, _Table, _OutPuts) ->
             throw({<<"func_error">>, "get_data error"})
     end.
 
-call_get_data(Sock, Table) ->
-    call_get_data(Sock, Table, []).
+% call_get_data(Sock, Table, o) ->
+%     call_get_data(Sock, Table, []).
 
 
 % call stop func

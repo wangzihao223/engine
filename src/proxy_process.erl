@@ -5,6 +5,7 @@
 
 -import(until, [sets_equal/2]).
 -import(engine_transport, [connect_sim/3]).
+-import(engine_transport, [counter_up/0]).
 
 -define(TIMEOUT, 30000).
 
@@ -23,17 +24,20 @@ new_process(Manager, Sid, Step) ->
 proxy_process(Manager, Sid, Step) ->
     % process init
     {Table, DepTuple} = process_init(Manager, Sid),
+    io:format("INFO: PROXY INTI OK ~n"),
     {Dep, BeDep} = DepTuple,
     % Dep is list , BeDep also list
     WaitSet = sets:from_list(Dep),
     SendList = BeDep,
     % get Sock
     [{<<"sid_sock">>, SidSock}] = ets:lookup(Table, <<"sid_sock">>),
-    Sock = dict:find(Sid, SidSock),
+    {ok, Sock} = dict:find(Sid, SidSock),
     % get buffer key
     BufferKey = unicode:characters_to_binary([Sid, <<"_buff">>]),
     % wait process start
     MaxStep = wait_process_start(),
+    io:format("INFO: REDAY MAIN_LOOP ~n"),
+    io:format("DEBUG: SOCK is ~p ~n", [Sock]),
     main_loop(Manager, Sid, WaitSet, Sock, SendList, Table, BufferKey, Step,
         MaxStep).
 
@@ -53,13 +57,15 @@ process_init(Manager, Sid) ->
     link(Manager),
     Table = registe_manager(Manager, Sid),
     % connect_remote_sim
-    connect_remote_sim(Table, Sid, Manager),
+    Sock = connect_remote_sim(Table, Sid, Manager),
+    io:format("DEBUG: CONNECT SOCK PID ~p ~n", [Sock]),
     % wait init
     wait_init(),
     % init sim
-    init_sim(Table, Sid),
+    init_sim(Table, Sid, Sock),
     % wait dep
     DepTuple = get_dep_relationship(Manager, Sid),
+    io:format("INFO: GET RELATIONSHIP ~n"),
     {Table, DepTuple}. 
 
 wait_init() ->
@@ -90,14 +96,15 @@ connect_remote_sim(Table, Sid, Monitor) ->
     {ok, [Address, Port,Timeout]} = dict:find(Sid, ConfigDic),
     Sock = connect_sim(Address, Port, Timeout),
     Monitor ! {<<"send_sid_sock">>, Sid, Sock, self()},
-    wait_connect_end().
+    wait_connect_end(),
+    Sock.
 
-init_sim(Table, Sid) ->
-    [{<<"sid_sock">>, SidSockDic}] = ets:lookup(Table, <<"sid_sock">>),
-    {ok, Sock} = dict:find(Sid, SidSockDic),
+init_sim(_Table, Sid, Sock) ->
+    % [{<<"sid_sock">>, SidSockDic}] = ets:lookup(Table, <<"sid_sock">>),
+    % {ok, Sock} = dict:find(Sid, SidSockDic),
     receive
         {<<"init_func">>, Sid, Args, Manager} ->
-            Id = engine_transport:counter_up(),
+            Id = counter_up(),
             Res = engine_transport:call_sim(Sock, Id, <<"init">>, Args),
             io:format("DEBUG: INTI ~p ~n", [Res]),
             %reply ok
@@ -111,6 +118,7 @@ init_sim(Table, Sid) ->
 wait_connect_end() ->
     receive
         {<<"all_end">>, _Pid} ->
+            io:format("INFO:ALL END ~n"),
             ok
     end.
 
@@ -121,6 +129,7 @@ wait_other_sim() ->
     end.
 % get dependency
 get_dep_relationship(_Manager, _Sid) ->
+    io:format("DEBUG: SELF ~p ~n", [self()]),
     receive
         {Dep, BeDep} ->
             % Dep : [sid_1, sid_2, ]
