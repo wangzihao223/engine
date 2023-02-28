@@ -25,8 +25,8 @@ handle_call({<<"make_task">>, UUid, ConfigList}, _From, Table)->
     handle_make_task(ConfigList, Table, UUid);
 % SidArgs
 handle_call({<<"config_sim">>, UUid, SidArgs}, _From, Table) ->
-    % save sid_list
-    save_sid_list(Table, SidArgs, UUid),
+    % % save sid_list
+    % save_sid_list(Table, SidArgs, UUid),
     % init and save sidargs
     handle_start_manager(Table, UUid, SidArgs);
 handle_call({<<"make_dep">>, UUid, DepList, BeDepList}, _From, Table) ->
@@ -38,6 +38,8 @@ handle_make_task(ConfigList, Table, UUid) ->
     % new manager
     try 
         {ManagerPid, MonitorPid} = sim_manager:new_manager(ConfigList, UUid),
+        SidList = save_sid_list(Table, ConfigList, UUid),
+        proxy_process:create_group_process(ManagerPid, SidList),
         Dict = dict:new(),
         NewDict = dict:store(<<"pid">>, {ManagerPid, MonitorPid}, Dict),
         Dict1 = dict:store(<<"manager_pid">>, ManagerPid, NewDict),
@@ -50,11 +52,12 @@ handle_make_task(ConfigList, Table, UUid) ->
     end.
 
 
-save_sid_list(Table, SidArgs, UUid) ->
-    SidList = get_sid_set(SidArgs),
+save_sid_list(Table, ConfigList, UUid) ->
+    SidList = get_sid_list(ConfigList),
     [{UUid, Dict}] = ets:lookup(Table, UUid),
     Dict1 =  dict:store(<<"sid_list">>, SidList, Dict),
-    ets:insert(Table, {UUid, Dict1}).
+    ets:insert(Table, {UUid, Dict1}),
+    SidList.
 
 handle_start_manager(Table, UUid, SidArgs) ->
     case ets:lookup(Table, UUid) of
@@ -70,14 +73,13 @@ handle_start_manager(Table, UUid, SidArgs) ->
     end.
 
 % get sid list
-get_sid_set(SidArgs) ->
-    get_sid_set(SidArgs, []).
-get_sid_set([], SidList) -> SidList;
-get_sid_set(SidArgs, SidList) ->
-    [{Sid, _} | NewSidArgs] = SidArgs,
-    NewSidList = [Sid | SidList],
-    get_sid_set(NewSidArgs, NewSidList).
-
+get_sid_list(ConfigList) ->
+    get_sid_list(ConfigList, []).
+get_sid_list([], Res) -> Res;
+get_sid_list(ConfigList, Res) ->
+    [{Sid, _} | NL] = ConfigList,
+    NewRes = [Sid | Res],
+    get_sid_list(NL, NewRes).
 
 handle_dep(Table, UUid, DepList, BeDepList) ->
     case ets:lookup(Table, UUid) of
