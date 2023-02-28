@@ -45,11 +45,19 @@ process_init(Manager, Sid) ->
     Table = registe_manager(Manager, Sid),
     % connect_remote_sim
     connect_remote_sim(Table, Sid, Manager),
+    % wait init
+    wait_init(),
     % init sim
     init_sim(Table, Sid),
     % wait dep
     DepTuple = get_dep_relationship(Manager, Sid),
     {Table, DepTuple}. 
+
+wait_init() ->
+    receive
+        {<<"ready_init">>} ->
+            ok         
+    end.
 
 use_process_dict() ->
     % insert counter

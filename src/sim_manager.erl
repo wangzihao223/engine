@@ -66,6 +66,9 @@ manager_process_init(Table, ConfigList) ->
     % now i don't care init resault
     [{_, SidSet}]= ets:lookup(Table, <<"sid_set">>),
     [{_, SidPidDic}] = ets:lookup(Table, <<"sid_pid">>),
+    % remove lock
+    SidPidList = dict:to_list(SidPidDic),
+    remove_lock(SidPidList),
     call_proxy_init(SidPidDic, SidArgs, SidSet),
     % wait dep
     wait_dep(Table),
@@ -101,6 +104,12 @@ all_init_done(PidList) ->
     Pid ! {<<"all_done">>, self()},
     all_init_done(NextPidList).
 
+% remove_lock
+remove_lock([]) -> o;
+remove_lock(SidPidList) ->
+    [{_Sid, Pid} | NextSidPidList] = SidPidList,
+    Pid ! {<<"ready_init">>},
+    remove_lock(NextSidPidList).
 
 wait_connect_all_sim(Table, ConfigList) ->
     save_sids(Table, ConfigList),
