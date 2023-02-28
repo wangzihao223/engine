@@ -7,7 +7,7 @@
 -export([call_many_sim/3]).
 -export([waiter/2]).
 -export([call_sim_add_reply/5]).
-
+-export([call_sim/4]).
 
 -import(until, [sets_equal/2]).
 
