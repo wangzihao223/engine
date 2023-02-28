@@ -169,9 +169,21 @@ init_buffer_loop(Table, SidList) ->
 wait_dep(Table) ->
     receive
         {<<"dep">>, DepList, BeDepList} ->
-            save_statement_dep(DepList, BeDepList, Table);
+            save_statement_dep(DepList, BeDepList, Table),
+            % tello other proxy
+            [{<<"sid_pid">>, SidPidDic}] = est:look_up(Table, <<"sid_pid">>),
+            SidPidList = dict:to_list(SidPidDic),
+            tell_proxy_dep(Table, SidPidList);
         _ -> ok
     end.
+
+% tell other proxy dep message
+tell_proxy_dep(_Table, []) -> ok;
+tell_proxy_dep(Table, SidPidList) ->
+    [{Sid, Pid} | NextSidPidList] = SidPidList,
+    handle_proxy_dep(Table, Sid, Pid),
+    tell_proxy_dep(Table, NextSidPidList).
+
 % statement dependency
 % DepList [{sid_1, [xx, xxx, xxx]}, {sid_2, [xx, xxx, xxxx]}, ...]
 % BeDep like up

@@ -95,7 +95,6 @@ init_sim(Table, Sid) ->
             Manager ! {<<"init_done">>, Sid, self()},
             % wait other sim
             wait_other_sim()
-
     end. 
 
 
@@ -112,8 +111,7 @@ wait_other_sim() ->
             ok
     end.
 % get dependency
-get_dep_relationship(Manager, Sid) ->
-    Manager ! {<<"proxy_dep">>, Sid, self()},
+get_dep_relationship(_Manager, _Sid) ->
     receive
         {Dep, BeDep} ->
             % Dep : [sid_1, sid_2, ]
