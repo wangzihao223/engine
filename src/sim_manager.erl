@@ -72,7 +72,22 @@ manager_process_init(Table, ConfigList) ->
     call_proxy_init(SidPidDic, SidArgs, SidSet),
     % wait dep
     wait_dep(Table),
+    % wait_start_comm
+    wait_start_cmd(SidPidList),
     ok.
+
+wait_start_cmd(SidPidList) ->
+    receive
+        {<<"start">>, MaxStep} ->
+            tell_all_start(SidPidList, MaxStep)
+    end.
+
+tell_all_start([], _MaxStep) -> ok;
+tell_all_start(SidPidList, MaxStep) ->
+    [{_Sid, Pid} | NL] = SidPidList,
+    Pid ! {<<"max_step">>, MaxStep},
+    tell_all_start(NL, MaxStep).
+
 
 call_proxy_init(_SidPidDic, [], SidSet)-> 
     RecvSet = sets:new(),
