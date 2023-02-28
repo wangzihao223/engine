@@ -85,7 +85,7 @@ registe_manager(Manager, Sid) ->
 
 % connect remote sim
 connect_remote_sim(Table, Sid, Monitor) ->
-    [{<<"config_list">>, ConfigList}] = ets:lookup(Table, <<config_list>>),
+    [{<<"config_list">>, ConfigList}] = ets:lookup(Table, <<"config_list">>),
     ConfigDic = dict:from_list(ConfigList),
     {ok, [Address, Port,Timeout]} = dict:find(Sid, ConfigDic),
     Sock = connect_sim(Address, Port, Timeout),
