@@ -23,8 +23,6 @@ accepter(Listen, ID) ->
 receiver(Socket) ->
     receive
         {tcp, Socket, Data} -> 
-            Size = length(Data),
-            io:format("length is ~.B ~n", [Size]),
             % TODO handle data
             tcp_middleware:handle_data(Data, Socket),
             inet:setopts(Socket, [{active, once}, 

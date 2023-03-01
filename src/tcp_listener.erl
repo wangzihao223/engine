@@ -9,7 +9,7 @@
 
 -define(PORT, 9989).
 
--define(WORKERS, 100).
+-define(WORKERS, 10).
 
 start_link()->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).

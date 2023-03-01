@@ -20,7 +20,6 @@
 init_all_sim(SidArgs, Table) ->
     % SidArgs transformation SockArgs
     SockArgs = get_sock_args(SidArgs, Table),
-    io:format("DEBUG: sockargs is ~p ~n", [SockArgs]),
     call_many_sim(SockArgs, Table, <<"init">>).
 
 % get SockArgs
@@ -31,7 +30,6 @@ get_sock_args(SidArgs, Table) ->
 
 get_sock_args([], Table, SockArgs, SockList) ->
     save_sock_list(Table, SockList),
-    io:format("DEBUG: sock_list ~p ~n", [SockList]),
     % ets:insert(Table, {<<"sock_list">>, SockList}),
     SockArgs;
 get_sock_args(SidArgs, Table, SockArgs, SockList) ->
@@ -78,7 +76,6 @@ call_get_data(Sock, _Table, _OutPuts) ->
     Id = counter_up(),
     % OutPuts 先设置为空
     {ok, Data} = call_sim(Sock, Id, <<"get_data">>, [_OutPuts]),
-    io:format("DEBUG: get data ~p ~n", [Data]),
     [_MsgId, Type, GetData] = Data,
     if Type =:= 1 ->
         % success

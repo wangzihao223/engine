@@ -16,13 +16,11 @@
 % recv other sim data
 % return all payload
 recv_data(Socket) ->
-    io:format("DEBUG: XXXXX ~n"),
+
     receive
         {tcp, Socket, Data} ->
-            io:format("DDDDDDDDDDDDDDDDD~n"),
             % unpack data
             % use jiffy
-            io:format("DEBUG: Data ~s ~n", [Data]),
             ErlData = from_bin_to_erl(Data),
             inet:setopts(Socket, [{active, once}, {packet, 4}]),
             {ok, ErlData};
@@ -38,7 +36,6 @@ recv_data(Socket) ->
 send_data(Socket, Data) ->
     % data is erlang obj
     BinData = jiffy:encode(Data),
-    io:format("DEBUG: send bin_data ~p ~n", [BinData]),
     gen_tcp:send(Socket, BinData).
 
 
@@ -59,10 +56,7 @@ req_sim_method(Id, Method, Args) ->
 % rpc sim
 call_sim(Sock, Id, Method, Args) ->
     Package = req_sim_method(Id, Method, Args),
-    io:format("DEBUG: Package IS ~p ~n", [Package]),
     send_data(Sock, Package),
-    io:format("TEST: socket ~p ~n", [Sock]),
-    io:format("DEBUG: INIT SOCK PID ~p ~n", [Sock]),
     recv_data(Sock).
 
 
@@ -92,7 +86,6 @@ reply_waiter(Waiter, Sock, Data) ->
 % call sim func have reply module 
 call_sim_add_reply(Sock, Id, Method, Args, Waiter) ->
     Response = call_sim(Sock, Id, Method, Args),
-    io:format("DEBUG: RESPONSE IS  ~p ~n", [Response]),
     reply_waiter(Waiter, Sock, Response).
 
 waiter(Master, Set) ->
@@ -128,7 +121,6 @@ loop_call_sim([], _Sockets, _Table, _Method, _Waiter) ->
     % wait Water reply
     receive
         {ok, Res} ->
-            io:format("DEBUG: RES IS ~p ~n", [Res]),
             Res
     end;
 loop_call_sim(SockArgs, SocketSet, Table, Method, Waiter) ->
@@ -144,7 +136,6 @@ counter_up() ->
     % get id from table
     MsgId = get(<<"counter">>),
     % io:format("DEBUG: MsgId  is ~d ~n", [MsgId]),
-    io:format("DEBUG: MsgId is ~b ~n", [MsgId]),
     put(<<"counter">>, MsgId+1),
     MsgId.
 
@@ -158,7 +149,6 @@ connect_sim(Addr, Port, Timeout) ->
     % connect sim
     Addr1 = erlang:binary_to_list(Addr),
     Response = gen_tcp:connect(Addr1, Port, Option, Timeout),
-    io:format("DEBUG: response is ~p ~n", [Response]),
     case Response of
         % connect sucess
         {ok, Socket} -> 

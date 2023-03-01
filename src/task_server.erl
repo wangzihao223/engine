@@ -65,10 +65,8 @@ handle_start_manager(Table, UUid, SidArgs) ->
         [] ->
             {reply, {<<"uuid_error">>, "uuid is not exist"},Table};
         [{UUid, Dict}] ->
-            io:format("DEBUG: start manager Dict ~p ~n", [Dict]),
             {ok, {ManagerPid, _}} = dict:find(<<"pid">>, Dict),
             ManagerPid ! {<<"init">>, SidArgs},
-            io:format("DEBUG: send ok ~n"),
             NewDict = dict:store(<<"sim_args">>, SidArgs, Dict),
             ets:insert(Table, {UUid, NewDict}),
             {reply, {<<"ok">>}, Table}

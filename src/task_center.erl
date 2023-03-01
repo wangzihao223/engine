@@ -5,7 +5,7 @@
 -export([start_center/0]).
 % -export([create_worker/1]).
 
--define(WORKER_NUM, 5).
+-define(WORKER_NUM, 50).
 
 
 
@@ -70,6 +70,7 @@ handle_req(Table, UUid, Queue, From) ->
     case ets:lookup(Table, UUid) of
         [] ->
             {{value, {Name, Pid}}, Queue_1} = queue:out(Queue),
+            io:format("UUid ~p, Name ~p, Pid ~p, ~n", [UUid, Name, Pid]),
             ets:insert(Table, {UUid, {Name, Pid}}),
             From ! {Name, Pid},
             Queue_2 = queue:in({Name, Pid}, Queue_1),

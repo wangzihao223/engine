@@ -11,7 +11,6 @@
 
 create_group_process(_, []) -> ok;
 create_group_process(Manager, SidList) ->
-    io:format("TEST: SidList ~p ~n", [SidList]),
     [Sid| NextSidList] = SidList,
     new_process(Manager, Sid, 0),
     create_group_process(Manager, NextSidList).
@@ -36,8 +35,6 @@ proxy_process(Manager, Sid, Step) ->
     BufferKey = unicode:characters_to_binary([Sid, <<"_buff">>]),
     % wait process start
     MaxStep = wait_process_start(),
-    io:format("INFO: REDAY MAIN_LOOP ~n"),
-    io:format("DEBUG: SOCK is ~p ~n", [Sock]),
     main_loop(Manager, Sid, WaitSet, Sock, SendList, Table, BufferKey, Step,
         MaxStep).
 
@@ -52,20 +49,17 @@ process_init(Manager, Sid) ->
 
     % use process dic
     use_process_dict(),
-    io:format("DEBUG: create counter ~n"),
     % link manager
     link(Manager),
     Table = registe_manager(Manager, Sid),
     % connect_remote_sim
     Sock = connect_remote_sim(Table, Sid, Manager),
-    io:format("DEBUG: CONNECT SOCK PID ~p ~n", [Sock]),
     % wait init
     wait_init(),
     % init sim
     init_sim(Table, Sid, Sock),
     % wait dep
     DepTuple = get_dep_relationship(Manager, Sid),
-    io:format("INFO: GET RELATIONSHIP ~n"),
     {Table, DepTuple}. 
 
 wait_init() ->
@@ -80,7 +74,6 @@ use_process_dict() ->
 
 % registe self to manager
 registe_manager(Manager, Sid) ->
-    io:format("DEBUG: Manager is ~p ~n", [Manager]),
     Manager ! {<<"registe">>, Sid, self()},
     receive
         {ok, _Manager, Table} -> Table
@@ -106,7 +99,6 @@ init_sim(_Table, Sid, Sock) ->
         {<<"init_func">>, Sid, Args, Manager} ->
             Id = counter_up(),
             Res = engine_transport:call_sim(Sock, Id, <<"init">>, Args),
-            io:format("DEBUG: INTI ~p ~n", [Res]),
             %reply ok
             Manager ! {<<"init_done">>, Sid, self()},
             % wait other sim
@@ -129,7 +121,6 @@ wait_other_sim() ->
     end.
 % get dependency
 get_dep_relationship(_Manager, _Sid) ->
-    io:format("DEBUG: SELF ~p ~n", [self()]),
     receive
         {Dep, BeDep} ->
             % Dep : [sid_1, sid_2, ]
